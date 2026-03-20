@@ -1,3 +1,5 @@
 .venv
 .env
 /src/.cache
+/src/data/raw
+/src/data/clean
