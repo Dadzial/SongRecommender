@@ -12,3 +12,5 @@ if __name__ == "__main__":
     print(f"Loaded {len(df)} rows")
     print(df.dtypes)
     print(df.head())
+    print(df['track_genre'].unique().tolist())
+    print(df['track_genre'].value_counts())
