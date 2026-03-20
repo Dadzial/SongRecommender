@@ -3,3 +3,4 @@
 /src/.cache
 /src/data/raw
 /src/data/clean
+/src/test/saved_models
