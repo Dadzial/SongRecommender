@@ -1,10 +1,13 @@
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
 from src.data.fetch import load_raw
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import pickle
+import os
 
 #METADATA FOR SONGS
 METADATA = [
@@ -190,55 +193,68 @@ def plot_distributions(features_before, features_after, features_to_transform):
     plt.show()
 
 
-def preprocess(visualize=True,random_state=42):
+def preprocess(visualize=True, random_state=42):
     df = load_raw()
     df = df[METADATA + FEATURES]
     df.dropna(inplace=True)
     df.drop_duplicates(subset="track_id", inplace=True)
     df.reset_index(drop=True, inplace=True)
-    df['genre_group'] = df['track_genre'].map(GENRE_MAPPING).fillna('inne')
 
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    CLEAN_PATH = os.path.join(BASE_DIR, "clean", "tfidf.pkl")
 
-    metadata = df[METADATA + ['genre_group']].copy()
+    df['genre_group'] = df['track_genre'].map(GENRE_MAPPING).fillna('other')
+
     features = df[FEATURES].copy()
-
     skew_limit = 0.75
     skew_values = features.skew()
     features_to_transform = skew_values[abs(skew_values) > skew_limit].index.tolist()
-
-    features_to_transform = [
-        col for col in features_to_transform
-        if features[col].min() >= 0
-    ]
-
-    print(f"Features type to transform (skew > {skew_limit}):")
-    print(skew_values[abs(skew_values) > skew_limit])
-
-    features_before = features.copy()
-
     for col in features_to_transform:
-        features[col] = np.log1p(features[col])
+        if features[col].min() >= 0:
+            features[col] = np.log1p(features[col])
 
-    if visualize and features_to_transform:
-        plot_distributions(features_before, features, features_to_transform)
-
-    features_train, features_test, metadata_train, metadata_test = train_test_split(
-        features, metadata, test_size=0.2, random_state=random_state
+    df_train, df_test, X_train_audio, X_test_audio = train_test_split(
+        df, features, test_size=0.2, random_state=random_state
     )
 
     scaler = StandardScaler()
-    features_train_scaled = pd.DataFrame(
-        scaler.fit_transform(features_train),
-        columns=features.columns,
-        index=features_train.index
+    X_train_audio_scaled = pd.DataFrame(
+        scaler.fit_transform(X_train_audio),
+        columns=FEATURES,
+        index=df_train.index
     )
-    features_test_scaled = pd.DataFrame(
-        scaler.transform(features_test),
-        columns=features.columns,
-        index=features_test.index
+    X_test_audio_scaled = pd.DataFrame(
+        scaler.transform(X_test_audio),
+        columns=FEATURES,
+        index=df_test.index
     )
 
-    return metadata_train, metadata_test, features_train_scaled, features_test_scaled, scaler
+    tfidf = TfidfVectorizer()
+    genre_train_matrix = tfidf.fit_transform(df_train['genre_group'])
+    genre_test_matrix = tfidf.transform(df_test['genre_group'])
+
+    genre_train_df = pd.DataFrame(
+        genre_train_matrix.toarray(),
+        columns=tfidf.get_feature_names_out(),
+        index=df_train.index
+    )
+    genre_test_df = pd.DataFrame(
+        genre_test_matrix.toarray(),
+        columns=tfidf.get_feature_names_out(),
+        index=df_test.index
+    )
+
+    features_train_final = pd.concat([X_train_audio_scaled, genre_train_df], axis=1)
+    features_test_final = pd.concat([X_test_audio_scaled, genre_test_df], axis=1)
+
+
+    metadata_train = df_train[METADATA + ['genre_group']]
+    metadata_test = df_test[METADATA + ['genre_group']]
+
+    with open(CLEAN_PATH, "wb") as f:
+        pickle.dump(tfidf, f)
+
+    return metadata_train, metadata_test, features_train_final, features_test_final, scaler , tfidf
 
 
 def plot_correlations(features_scaled):
@@ -249,7 +265,8 @@ def plot_correlations(features_scaled):
     plt.show()
 
 if __name__ == "__main__":
-    metadata_train, metadata_test, features_train, features_test, scaler = preprocess()
+    metadata_train, metadata_test, features_train, features_test, scaler ,tfidf = preprocess()
+
     print(metadata_train.head())
     print(features_train.head())
     plot_correlations(features_train)
