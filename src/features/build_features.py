@@ -12,7 +12,7 @@ SCALER_PATH = os.path.join(CLEAN_DIR, "scaler.pkl")
 def build_features():
     os.makedirs(CLEAN_DIR, exist_ok=True)
 
-    metadata_train, metadata_test, features_train, features_test, scaler = preprocess()
+    metadata_train, metadata_test, features_train, features_test, scaler, _ = preprocess()
 
     metadata_train.to_csv(os.path.join(CLEAN_DIR, "metadata_train.csv"), index=False)
     metadata_test.to_csv(os.path.join(CLEAN_DIR, "metadata_test.csv"), index=False)
