@@ -57,7 +57,6 @@ def _pick_best_match_index(
         normalized_catalog: pd.Series,
         normalized_query: str,
 ) -> int | None:
-    # 1) Exact match po tytule
     exact_idx = metadata[normalized_catalog == normalized_query].index
     if len(exact_idx) > 0:
         exact_rows = metadata.loc[exact_idx]
@@ -65,7 +64,6 @@ def _pick_best_match_index(
             return int(exact_rows["popularity"].astype(float).idxmax())
         return int(exact_idx[0])
 
-    # 2) Fallback: contains
     contains_mask = normalized_catalog.str.contains(normalized_query, regex=False, na=False)
     contains_idx = metadata[contains_mask].index
     if len(contains_idx) > 0:
@@ -147,7 +145,6 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
 
     y_score = np.clip(reg.predict(X_test), 0.0, 1.0)
 
-    # Dynamiczny próg: maksymalizacja F1 na PR curve
     best_thr = 0.5
     pr_curve_p, pr_curve_r, pr_curve_t = precision_recall_curve(y_test, y_score)
     if len(pr_curve_t) > 0:
@@ -157,13 +154,11 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
 
     y_pred = (y_score >= best_thr).astype(int)
 
-    # Metryki regresyjne (target 0/1)
     mae = mean_absolute_error(y_test, y_score)
     mse = mean_squared_error(y_test, y_score)
     rmse = mse ** 0.5
     r2 = r2_score(y_test, y_score)
 
-    # Metryki klasyfikacyjne
     precision, recall, f1, _ = precision_recall_fscore_support(
         y_test, y_pred, average="binary", zero_division=0
     )
@@ -177,7 +172,6 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
 
     p_at_10, r_at_10 = compute_precision_recall_at_k(y_test, y_score, k=10)
 
-    # Słownik metryk
     metrics = {
         "best_threshold": float(best_thr),
         "regression_metrics": {
@@ -213,7 +207,6 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
     print(f"ROC-AUC:   {roc_auc:.4f}" if not np.isnan(roc_auc) else "ROC-AUC:   N/A (1 klasa w y_test)")
     print(f"PR-AUC:    {pr_auc:.4f}" if not np.isnan(pr_auc) else "PR-AUC:    N/A (1 klasa w y_test)")
 
-    # Wykresy główne (4 subploty)
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
     if len(unique_classes) == 2:
@@ -244,22 +237,18 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
     plt.tight_layout()
     os.makedirs(REPORTS_DIR, exist_ok=True)
 
-    # Zapisz wykres główny
     out_plot = os.path.join(REPORTS_DIR, "rf_metrics.png")
     plt.savefig(out_plot, dpi=150, bbox_inches="tight")
     print(f"Zapisano wykresy do: {out_plot}")
 
-    # Zamknij figurę bez warningów
     backend = matplotlib.get_backend().lower()
     if "agg" in backend:
         plt.close(fig)
     else:
         plt.show()
 
-    # ===== OSOBNY PNG: y_true vs y_pred + Residual Plot =====
     fig_pred, axes_pred = plt.subplots(1, 2, figsize=(14, 5))
 
-    # y_true vs y_pred scatter plot
     axes_pred[0].scatter(y_test, y_score, alpha=0.5, s=30, color="steelblue", edgecolors="black", linewidth=0.5)
     axes_pred[0].plot([0, 1], [0, 1], 'r--', lw=2, label="Perfect Prediction")
     axes_pred[0].set_xlabel("y_true")
@@ -268,7 +257,6 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
     axes_pred[0].legend()
     axes_pred[0].grid(True, alpha=0.3)
 
-    # Residual plot
     residuals = y_test - y_score
     axes_pred[1].scatter(y_score, residuals, alpha=0.5, s=30, color="coral", edgecolors="black", linewidth=0.5)
     axes_pred[1].axhline(y=0, color='r', linestyle='--', lw=2)
@@ -287,7 +275,6 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
         plt.show()
     plt.close(fig_pred)
 
-    # Tabelka metryk na oddzielnym PNG
     fig_metrics, ax_metrics = plt.subplots(figsize=(10, 6))
     ax_metrics.axis("tight")
     ax_metrics.axis("off")
@@ -310,7 +297,6 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
     table.set_fontsize(11)
     table.scale(1, 2)
 
-    # Stylizacja nagłówka
     for i in range(2):
         table[(0, i)].set_facecolor("#40466e")
         table[(0, i)].set_text_props(weight="bold", color="white")
@@ -326,7 +312,6 @@ def evaluate_and_plot_rf(X: np.ndarray, y: np.ndarray, feature_names: list[str])
         plt.show()
     plt.close(fig_metrics)
 
-    # Zapisz metryki do JSON
     out_metrics = os.path.join(REPORTS_DIR, "rf_metrics.json")
     with open(out_metrics, "w") as f:
         json.dump(metrics, f, indent=2)
@@ -356,17 +341,14 @@ def main():
     if len(liked_idx) < 3:
         print(f"Uwaga: znaleziono tylko {len(liked_idx)} z {len(INPUT_SONGS)} liked. Ranking może być słabszy.")
 
-    # Labels: liked=1, reszta=0
     y = np.zeros(len(metadata), dtype=float)
     y[liked_idx.to_numpy()] = 1.0
 
     X = features.to_numpy()
     feature_names = features.columns.tolist()
 
-    # 1) Ewaluacja + wykresy na hold-out
     _ = evaluate_and_plot_rf(X, y, feature_names)
 
-    # 2) Trening finalnego modelu na całości do rankingu rekomendacji
     n_pos = int(y.sum())
     n_neg = len(y) - n_pos
     pos_weight = n_neg / max(n_pos, 1)
@@ -377,14 +359,11 @@ def main():
     reg = build_rf()
     reg.fit(X, y, sample_weight=sample_weight)
 
-    # "Prawdopodobieństwo-like" z regresji 0/1
     proba_like = np.clip(reg.predict(X), 0.0, 1.0)
 
-    # Similarity do centroidu liked
     liked_vector = X[liked_idx.to_numpy()].mean(axis=0, keepdims=True)
     sim = cosine_similarity(X, liked_vector).ravel()
 
-    # Finalny score (blend)
     proba_norm = minmax_01(proba_like)
     sim_norm = minmax_01(sim)
     final_score = 0.70 * proba_norm + 0.30 * sim_norm
@@ -393,8 +372,6 @@ def main():
     results["proba_like"] = proba_like
     results["similarity"] = sim
     results["final_score"] = final_score
-
-    # Wykluczamy utwory already-liked
     results = results.drop(index=liked_idx, errors="ignore")
 
     recs = results.sort_values("final_score", ascending=False).head(TOP_N)
