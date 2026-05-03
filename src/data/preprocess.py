@@ -198,45 +198,40 @@ def preprocess(visualize=True,random_state=42):
     df.reset_index(drop=True, inplace=True)
     df['genre_group'] = df['track_genre'].map(GENRE_MAPPING).fillna('inne')
 
-
+    # One-hot encode genre groups
+    genre_dummies = pd.get_dummies(df['genre_group'], prefix='genre')
+    
     metadata = df[METADATA + ['genre_group']].copy()
-    features = df[FEATURES].copy()
+    # Combine numerical features with one-hot encoded genres
+    features = pd.concat([df[FEATURES], genre_dummies], axis=1)
 
     skew_limit = 0.75
-    skew_values = features.skew()
+    # Only calculate skew for numerical features
+    skew_values = df[FEATURES].skew()
     features_to_transform = skew_values[abs(skew_values) > skew_limit].index.tolist()
 
     features_to_transform = [
         col for col in features_to_transform
-        if features[col].min() >= 0
+        if df[col].min() >= 0
     ]
 
     print(f"Features type to transform (skew > {skew_limit}):")
     print(skew_values[abs(skew_values) > skew_limit])
 
-    features_before = features.copy()
-
     for col in features_to_transform:
         features[col] = np.log1p(features[col])
-
-    if visualize and features_to_transform:
-        plot_distributions(features_before, features, features_to_transform)
 
     features_train, features_test, metadata_train, metadata_test = train_test_split(
         features, metadata, test_size=0.2, random_state=random_state
     )
 
     scaler = StandardScaler()
-    features_train_scaled = pd.DataFrame(
-        scaler.fit_transform(features_train),
-        columns=features.columns,
-        index=features_train.index
-    )
-    features_test_scaled = pd.DataFrame(
-        scaler.transform(features_test),
-        columns=features.columns,
-        index=features_test.index
-    )
+    # Scale only the numerical part of the features
+    features_train_scaled = features_train.copy()
+    features_test_scaled = features_test.copy()
+
+    features_train_scaled[FEATURES] = scaler.fit_transform(features_train[FEATURES])
+    features_test_scaled[FEATURES] = scaler.transform(features_test[FEATURES])
 
     return metadata_train, metadata_test, features_train_scaled, features_test_scaled, scaler
 
