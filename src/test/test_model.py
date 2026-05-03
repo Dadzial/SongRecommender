@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CLEAN_DIR = os.path.join(BASE_DIR, "..", "data", "clean")
 MODEL_PATH = os.path.join(BASE_DIR, "saved_models", "knn_model.pkl")
+TF_IDF_PATH = os.path.join(BASE_DIR, "saved_models", "tfidf_vectorizer.pkl")
 
 # liked songs
 INPUT_SONGS = [
@@ -22,17 +23,27 @@ INPUT_SONGS = [
 metadata_train = pd.read_csv(os.path.join(CLEAN_DIR, "metadata_train.csv"))
 features_train = pd.read_csv(os.path.join(CLEAN_DIR, "features_train.csv"))
 
+if 'Unnamed: 0' in metadata_train.columns:
+    metadata_train = metadata_train.drop(columns=['Unnamed: 0'])
+if 'Unnamed: 0' in features_train.columns:
+    features_train = features_train.drop(columns=['Unnamed: 0'])
+
 # Load of model
 with open(MODEL_PATH, "rb") as f:
     model = pickle.load(f)
 
+with open(TF_IDF_PATH, "rb") as f:
+    tfidf = pickle.load(f)
+
 # Save liked songs
 matched = metadata_train[metadata_train['track_name'].isin(INPUT_SONGS)]
 matched = matched.drop_duplicates(subset='track_name', keep='first')
+matched_indices = matched.index
+
 print(matched[['track_name', 'artists', 'track_genre']].to_string(index=False))
 
 # Take songs of user and create vector
-input_features = features_train[metadata_train['track_name'].isin(INPUT_SONGS).values]
+input_features = features_train.loc[matched_indices]
 user_profile = pd.DataFrame(
     input_features.mean(axis=0).values.reshape(1, -1),
     columns=features_train.columns

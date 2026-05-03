@@ -1,6 +1,14 @@
-.venv
-.env
-/src/.cache
-/src/data/raw
-/src/data/clean
-/src/test/saved_models
+# Virtual environments
+.venv/
+.venv312/
+.venv313/
+.venv314/
+venv/
+env/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
