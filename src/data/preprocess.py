@@ -170,7 +170,7 @@ GENRE_MAPPING = {
     'show-tunes': 'inne',
 }
 
-
+# Plot distributions for transformed features
 def plot_distributions(features_before, features_after, features_to_transform):
     fig, axes = plt.subplots(len(features_to_transform), 2, figsize=(12, len(features_to_transform) * 3))
 
@@ -218,8 +218,14 @@ def preprocess(visualize=True,random_state=42):
     print(f"Features type to transform (skew > {skew_limit}):")
     print(skew_values[abs(skew_values) > skew_limit])
 
-    for col in features_to_transform:
-        features[col] = np.log1p(features[col])
+    if visualize and features_to_transform:
+        features_before = features.copy()
+        for col in features_to_transform:
+            features[col] = np.log1p(features[col])
+        plot_distributions(features_before, features, features_to_transform)
+    else:
+        for col in features_to_transform:
+            features[col] = np.log1p(features[col])
 
     features_train, features_test, metadata_train, metadata_test = train_test_split(
         features, metadata, test_size=0.2, random_state=random_state
@@ -235,7 +241,7 @@ def preprocess(visualize=True,random_state=42):
 
     return metadata_train, metadata_test, features_train_scaled, features_test_scaled, scaler
 
-
+# correlation matrix for features
 def plot_correlations(features_scaled):
     plt.figure(figsize=(12, 6))
     df_correl = features_scaled if isinstance(features_scaled, pd.DataFrame) else pd.DataFrame(features_scaled)
