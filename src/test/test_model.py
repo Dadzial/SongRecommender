@@ -12,11 +12,11 @@ TF_IDF_PATH = os.path.join(BASE_DIR, "saved_models", "tfidf_vectorizer.pkl")
 
 # liked songs
 INPUT_SONGS = [
-    "Bohemian Rhapsody",
-    "Smells Like Teen Spirit",
-    "Back In Black",
-    "Enter Sandman",
-    "Sweet Child O' Mine",
+    "This Is War",
+    "CASTLE OF THE GLASS",
+    "Angel With a Shotgun",
+    "Centuries",
+    "My Demons",
 ]
 
 # load of train data
